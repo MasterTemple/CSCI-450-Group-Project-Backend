@@ -69,7 +69,7 @@ def is_valid_login_code(data):
     login_code = data['loginCode']
     codes = [c for c in email_codes.find({"emailAddress": email_address})]
     for code in codes:
-        if code["login_code"] == login_code:
+        if int(code["login_code"]) == int(login_code):
             return True
     return False
 
@@ -200,7 +200,8 @@ def delete_song():
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
     # get json data sent in body of request
-    data = request.get_json()
+    # data = request.get_json()
+    auth_token, data = parse_json(request)
     email_address = data['emailAddress']
     login_code = randint(0,999999)
 
@@ -214,13 +215,17 @@ def send_verification_code():
     # email user
     print(f"Sent code {login_code} to '{email_address}'")
     send_verification_email(email_address, login_code)
-    return jsonify({})
+    res =  jsonify({})
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
 
 
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
     # get json data sent in body of request
-    data = request.get_json()
+    # data = request.get_json()
+    auth_token, data = parse_json(request)
     
     entry = {}
     if is_valid_login_code(data):
@@ -231,7 +236,10 @@ def verify_login():
             "time": get_time()
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))
-    return jsonify(entry)
+    res =  jsonify(entry)
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
 
 def remove_old_login_codes():
     window = dt.now() - timedelta(minutes=LOGIN_CODE_EXPIRATION_MINUTES)
