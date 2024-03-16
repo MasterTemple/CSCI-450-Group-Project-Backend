@@ -25,6 +25,8 @@ EMAIL="lyric.of.lyrics.app@gmail.com"
 APP_PASSWORD="CONTACT_ME_FOR_THIS"
 LOGIN_CODE_EXPIRATION_MINUTES=5
 AUTH_TOKEN_EXPIRATION_WEEKS=8
+DB_NAME="lyric-of-lyric-db-001"
+DB_URI="mongodb://localhost:27017/"
 ```
 
 You can rename the `.env.template` file to `.env` and then fill in the `APP_PASSWORD` field.

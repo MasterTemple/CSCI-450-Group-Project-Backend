@@ -5,14 +5,12 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime as dt, timedelta
 from dotenv import load_dotenv
-from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask_cors import CORS
 from flask import Flask, request, jsonify, Request
 from pymongo import MongoClient
 from random import randint
-from smtplib import SMTP
 from uuid import uuid4
 
 import json
@@ -28,10 +26,18 @@ load_dotenv()
 
 LOL_EMAIL = os.environ.get("EMAIL")
 LOL_PASSWORD = os.environ.get("APP_PASSWORD")
+DB_NAME = os.environ.get("DB_NAME")
+DB_URI = os.environ.get("DB_URI")
 
-if any(v is None for v in [LOL_EMAIL, LOL_PASSWORD]):
+if any(v is None for v in [LOL_EMAIL, LOL_PASSWORD, DB_NAME, DB_URI]):
     print("Follow the instructions in `README.md` to set up your `.env` file.")
     exit(1)
+
+# to remove LSP errors
+LOL_EMAIL = ""
+LOL_PASSWORD = ""
+DB_NAME = ""
+DB_URI = ""
 
 LOGIN_CODE_EXPIRATION_MINUTES = int(os.environ.get("LOGIN_CODE_EXPIRATION_MINUTES") or 5)
 AUTH_TOKEN_EXPIRATION_WEEKS = int(os.environ.get("AUTH_TOKEN_EXPIRATION_WEEKS") or 8)
@@ -46,8 +52,8 @@ app.config['NODE_TLS_REJECT_UNAUTHORIZED'] = 0
 CORS(app)
 
 # connect to database
-client = MongoClient("mongodb://localhost:27017/")
-db = client["test-database0001"]
+client = MongoClient(DB_URI)
+db = client[DB_NAME]
 
 # list of all songs by user
 song_list = db["song_list"]
@@ -55,6 +61,10 @@ song_list = db["song_list"]
 user_logins = db["user_logins"]
 # verification codes for email
 email_codes = db["email_codes"]
+
+#############
+# FUNCTIONS #
+#############
 
 def get_time() -> str:
     timestamp = dt.now().timestamp()
@@ -92,7 +102,6 @@ def get_user_from_auth_token(auth_token) -> str | None:
         return None
     return entry["emailAddress"]
 
-
 def send_verification_email(recipient: str, code: int):
     SUBJECT = "Lyric of Lyrics - Verification Code"
     BODY = f"Enter the following 6-digit code to verify your identity and gain access to your Lyric of Lyrics account: <b>{code}</b>"
@@ -108,13 +117,20 @@ def send_verification_email(recipient: str, code: int):
     s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
     s.quit()
 
-def parse_json(request: Request):
+def parse_json(request: Request) -> tuple[str, dict]:
+    """
+    because MongoDB cries
+    """
     body = {}
     if request.is_json:
         body = json.loads(json.dumps(request.get_json()))
     else:
         body = json.loads(request.get_data())
     return body["authToken"], body["data"]
+
+#################
+# SERVER ROUTES #
+#################
 
 @app.route('/save', methods=['POST'])
 def save():
@@ -201,7 +217,7 @@ def delete_song():
 def send_verification_code():
     # get json data sent in body of request
     # data = request.get_json()
-    auth_token, data = parse_json(request)
+    _, data = parse_json(request)
     email_address = data['emailAddress']
     login_code = randint(0,999999)
 
@@ -220,12 +236,11 @@ def send_verification_code():
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
 
-
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
     # get json data sent in body of request
     # data = request.get_json()
-    auth_token, data = parse_json(request)
+    _, data = parse_json(request)
     
     entry = {}
     if is_valid_login_code(data):
@@ -240,6 +255,10 @@ def verify_login():
     res.headers.set("Content-Type", "application/json")
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
+
+####################################
+# CLEAN OLD LOGIN CODES AND TOKENS #
+####################################
 
 def remove_old_login_codes():
     window = dt.now() - timedelta(minutes=LOGIN_CODE_EXPIRATION_MINUTES)
