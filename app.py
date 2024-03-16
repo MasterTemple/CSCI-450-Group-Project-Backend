@@ -8,10 +8,11 @@ from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask_cors import CORS
-from flask import Flask, request, jsonify, Request
+from flask import Flask, request, jsonify, Request, send_file
 from pymongo import MongoClient
 from random import randint
 from uuid import uuid4
+from slideshow import Slideshow
 
 import json
 import os
@@ -252,6 +253,24 @@ def verify_login():
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))
     res =  jsonify(entry)
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
+
+TEMP_PPTX_FILE = "temp.pptx"
+@app.route('/export', methods=['POST'])
+def export():
+    _, data = parse_json(request)
+    print(data.keys())
+    slideshow = Slideshow(data["slides"], data["settings"], data["title"], data["author"])
+    if len(data["title"]) > 0:
+        title = data["title"]
+    else:
+        title = data["slides"][0][0]
+    if len(data["author"]) > 0:
+        title = f"{title} - {data['author']}"
+    slideshow.save(TEMP_PPTX_FILE)
+    res = send_file(TEMP_PPTX_FILE, as_attachment=True, download_name=f"{title}.pptx")
     res.headers.set("Content-Type", "application/json")
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
