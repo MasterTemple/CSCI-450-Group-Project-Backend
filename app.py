@@ -9,7 +9,7 @@ from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask_cors import CORS
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Request
 from pymongo import MongoClient
 from random import randint
 from smtplib import SMTP
@@ -18,6 +18,7 @@ from uuid import uuid4
 import json
 import os
 import smtplib
+
 
 ##############################
 # LOAD ENVIRONMENT VARIABLES #
@@ -64,31 +65,32 @@ def str_to_date(iso_time_stamp) -> dt:
     return dt.fromisoformat(iso_time_stamp)
 
 def is_valid_login_code(data):
-    email_address = data["email_address"]
-    login_code = data['login_code']
-    codes = [c for c in email_codes.find({"email_address": email_address})]
+    email_address = data["emailAddress"]
+    login_code = data['loginCode']
+    codes = [c for c in email_codes.find({"emailAddress": email_address})]
     for code in codes:
         if code["login_code"] == login_code:
             return True
     return False
 
 def is_athentic_user(data:dict) -> bool:
-    try:
-        email_address = data["email_address"]
-        auth_token = data["auth_token"]
-        tokens = [c for c in user_logins.find({"email_address": email_address})]
-        for tokens in tokens:
-            if tokens["auth_token"] == auth_token:
-                return True
-        return False
-    except:
-        return False
+    print("is_athentic_user()")
+    print(data)
+    email_address = data["emailAddress"]
+    auth_token = data["authToken"]
+    tokens = [c for c in user_logins.find({"emailAddress": email_address})]
+    print(tokens)
+    print([c for c in user_logins.find()])
+    for tokens in tokens:
+        if tokens["authToken"] == auth_token:
+            return True
+    return False
 
 def get_user_from_auth_token(auth_token) -> str | None:
-    entry = email_codes.find_one({"auth_token": auth_token})
+    entry = user_logins.find_one({"authToken": auth_token})
     if entry is None:
         return None
-    return entry["email_address"]
+    return entry["emailAddress"]
 
 
 def send_verification_email(recipient: str, code: int):
@@ -106,66 +108,106 @@ def send_verification_email(recipient: str, code: int):
     s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
     s.quit()
 
+def parse_json(request: Request):
+    body = {}
+    if request.is_json:
+        body = json.loads(json.dumps(request.get_json()))
+    else:
+        body = json.loads(request.get_data())
+    return body["authToken"], body["data"]
+
 @app.route('/save', methods=['POST'])
 def save():
     # get json data sent in body of request
-    data = request.get_json()
-    # so mongodb doesn't cry
-    data = json.loads(json.dumps(data))
+    auth_token, data = parse_json(request)
 
     # invalid user
-    if not is_athentic_user(data):
-        return jsonify({})
+    emailAddress = get_user_from_auth_token(auth_token)
+    if emailAddress is None:
+        return jsonify({"msg": "invalid auth"})
 
-    print(f"Saved '{data['title']}' for '{data['userId']}'")
     # insert/update song
     result = song_list.update_one(
         # find same song
         {
             "songId": data["songId"],
-            "userId": data["userId"]
+            "emailAddress": data["emailAddress"]
         },
         {"$set": data}, # rewrite existing song
         upsert=True # insert if not exists
     )
-    # return id of new song
-    new_id = data["songId"]
-    if result.upserted_id is not None:
-        new_id = result.upserted_id
-    return jsonify({"_id": new_id})
+    # return jsonify(success=True,_id=result.upserted_id)
+    res = jsonify({"msg": "success"})
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
 
 
 @app.route('/load', methods=['POST'])
 def load():
     # get json data sent in body of request
-    data = request.get_json()
+    auth_token, _ = parse_json(request)
 
     # invalid user
-    if not is_athentic_user(data):
-        return jsonify([])
+    emailAddress = get_user_from_auth_token(auth_token)
+    if emailAddress is None:
+        res = jsonify([])
+        res.headers.add('Access-Control-Allow-Origin', '*')
+        return res
+        # return jsonify({"msg": "invalid auth"})
+        # return jsonify({"msg": "invalid auth"})
 
     # find all songs by user
     result = song_list.find(
         {
-            "userId": data["email_address"]
+            "emailAddress": emailAddress
         },
     )
     # put elements at cursor into list
     result = [r for r in result]
+    # ObjectId() object doesn't jsonify and I don't need it
+    for r in result:
+        del r["_id"]
     # return list of songs
-    return jsonify(result)
+    res = jsonify(result)
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
+
+@app.route('/delete', methods=['POST'])
+def delete_song():
+    # get json data sent in body of request
+    auth_token, data = parse_json(request)
+
+    # invalid user
+    emailAddress = get_user_from_auth_token(auth_token)
+    if emailAddress is None:
+        return jsonify({"msg": "invalid auth"})
+
+    result = song_list.delete_one(
+        # find same song
+        {
+            "songId": data["songId"],
+            "emailAddress": emailAddress
+        }
+    )
+    print(result)
+    # return jsonify(success=True,_id=result.upserted_id)
+    res = jsonify({"msg": "delete success"})
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
 
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
     # get json data sent in body of request
     data = request.get_json()
-    email_address = data['email_address']
+    email_address = data['emailAddress']
     login_code = randint(0,999999)
 
     # save code
     email_codes.insert_one({
         "login_code": login_code,
-        "email_address": email_address,
+        "emailAddress": email_address,
         "time": get_time()
     })
 
@@ -184,8 +226,8 @@ def verify_login():
     if is_valid_login_code(data):
         auth_token = str(uuid4())
         entry = {
-            "auth_token": auth_token,
-            "email_address": data['email_address'],
+            "authToken": auth_token,
+            "emailAddress": data['emailAddress'],
             "time": get_time()
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))

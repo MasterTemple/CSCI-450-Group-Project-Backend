@@ -13,17 +13,19 @@ url = "http://127.0.0.1:5000/"
 # url += "verify_login"
 # data = {
 #     "email_address": "blake.scampone@biola.edu",
-#     "login_code": 197186
+#     "login_code": 133055
 # }
 
 
 url += "load"
-data = {
-    "email_address": "blake.scampone@biola.edu",
-    "auth_token": "8294fb3a-e85c-4b44-8186-e2a0f2b6b422"
+body = {
+    "authToken": "1de016b1-51ce-42e5-8ce2-934dec2105e4",
+    "data": {
+        "emailAddress": "blake.scampone@biola.edu",
+    }
 }
 
 headers = {"Content-Type": "application/json"}
-res = requests.post(url, json=data, headers=headers)
+res = requests.post(url, json=body, headers=headers)
 # print(res)
-print(res.json())
+print(len(res.json()))
