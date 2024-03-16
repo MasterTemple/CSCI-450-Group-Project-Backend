@@ -1,6 +1,6 @@
 # CSCI-450-Group-Project-Backend
 
-Backend server for https://github.com/MasterTemple/CSCI-450-Group-Project
+Back-end server for https://github.com/MasterTemple/CSCI-450-Group-Project
 
 # Setup
 
@@ -20,7 +20,7 @@ pip install flask apscheduler pymongo flask_cors python-dotenv
 
 ## Create `.env` file with the following contents
 
-```
+```sh
 EMAIL="lyric.of.lyrics.app@gmail.com"
 APP_PASSWORD="CONTACT_ME_FOR_THIS"
 LOGIN_CODE_EXPIRATION_MINUTES=5
