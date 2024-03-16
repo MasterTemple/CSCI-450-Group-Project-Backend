@@ -34,10 +34,10 @@ if any(v is None for v in [LOL_EMAIL, LOL_PASSWORD, DB_NAME, DB_URI]):
     exit(1)
 
 # to remove LSP errors
-LOL_EMAIL = ""
-LOL_PASSWORD = ""
-DB_NAME = ""
-DB_URI = ""
+LOL_EMAIL = LOL_EMAIL or ""
+LOL_PASSWORD = LOL_PASSWORD or ""
+DB_NAME = DB_NAME or ""
+DB_URI = DB_URI or ""
 
 LOGIN_CODE_EXPIRATION_MINUTES = int(os.environ.get("LOGIN_CODE_EXPIRATION_MINUTES") or 5)
 AUTH_TOKEN_EXPIRATION_WEEKS = int(os.environ.get("AUTH_TOKEN_EXPIRATION_WEEKS") or 8)
