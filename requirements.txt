@@ -1,0 +1,7 @@
+APScheduler==3.10.4
+Flask==3.0.2
+Flask_Cors==4.0.0
+pymongo==4.6.2
+python-dotenv==1.0.1
+python_pptx==0.6.23
+Requests==2.31.0

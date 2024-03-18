@@ -15,7 +15,7 @@ Instructions found [here](https://www.mongodb.com/docs/manual/administration/ins
 ## Install Python Packages
 
 ```sh
-pip install flask apscheduler pymongo flask_cors python-dotenv
+pip install -r requirements.txt
 ```
 
 ## Create `.env` file with the following contents
