@@ -39,6 +39,7 @@ You can rename the `.env.template` file to `.env` and then fill in the `APP_PASS
 
 ```sh
 sudo systemctl start mongod
+brew services start mongodb-community #(for macOS)
 ```
 
 ## Run Python Server
