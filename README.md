@@ -12,6 +12,12 @@ Download found [here](https://www.python.org/downloads/).
 
 Instructions found [here](https://www.mongodb.com/docs/manual/administration/install-community/).
 
+## **You may need to create a virtual environment**
+```
+python3 -m venv <name of venv>
+source <name of venv>/bin/activate
+```
+
 ## Install Python Packages
 
 ```sh
@@ -41,6 +47,7 @@ You can rename the `.env.template` file to `.env` and then fill in the `APP_PASS
 sudo systemctl start mongod
 brew services start mongodb-community #(for macOS)
 ```
+
 
 ## Run Python Server
 
