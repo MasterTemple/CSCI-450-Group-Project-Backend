@@ -104,6 +104,7 @@ def get_user_from_auth_token(auth_token) -> str | None:
     return entry["emailAddress"]
 
 def send_verification_email(recipient: str, code: int):
+    # code_str = f"{code:0>6}"
     SUBJECT = "Lyric of Lyrics - Verification Code"
     BODY = f"Enter the following 6-digit code to verify your identity and gain access to your Lyric of Lyrics account: <b>{code}</b>"
     s=smtplib.SMTP("smtp.gmail.com", 587)
@@ -220,7 +221,7 @@ def send_verification_code():
     # data = request.get_json()
     _, data = parse_json(request)
     email_address = data['emailAddress']
-    login_code = randint(0,999999)
+    login_code = randint(100000,999999)
 
     # save code
     email_codes.insert_one({
