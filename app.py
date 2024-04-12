@@ -19,6 +19,9 @@ import os
 import smtplib
 
 
+def msg(data: str) -> dict[str, str]:
+    return {"msg": data}
+
 def reply(data):
     res = jsonify(data)
     res.headers.set("Content-Type", "application/json")
@@ -86,7 +89,7 @@ def is_valid_login_code(data):
     login_code = data['loginCode']
     codes = [c for c in email_codes.find({"emailAddress": email_address})]
     for code in codes:
-        if int(code["login_code"]) == int(login_code):
+        if int(code["loginCode"]) == int(login_code):
             return True
     return False
 
@@ -116,14 +119,14 @@ def send_verification_email(recipient: str, code: int) -> str:
     s=smtplib.SMTP("smtp.gmail.com", 587)
     s.starttls()
     s.login(LOL_EMAIL, LOL_PASSWORD)
-    msg = MIMEMultipart()
-    msg['From'] = LOL_EMAIL
-    msg['To'] = recipient
-    msg['Subject'] = SUBJECT
+    message = MIMEMultipart()
+    message['From'] = LOL_EMAIL
+    message['To'] = recipient
+    message['Subject'] = SUBJECT
     html_message = BODY
-    msg.attach(MIMEText(html_message, 'html'))
+    message.attach(MIMEText(html_message, 'html'))
     try:
-        s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
+        s.sendmail(LOL_EMAIL, [recipient], message.as_string())
         s.quit()
         return "Email address is valid"
     except:
@@ -156,19 +159,19 @@ def save():
     auth_token, data = parse_json(request)
 
     if auth_token is None:
-        return reply({"msg": "User not authenticated"})
+        return reply(msg("User not authenticated"))
 
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
 
     if emailAddress is None:
-        return reply({"msg": "Invalid user authentication"})
+        return reply(msg("Invalid user authentication"))
 
     if "songId" not in data:
-        return reply({"msg": "No song id provided"})
+        return reply(msg("No song id provided"))
 
     if "slides" not in data or "lines" not in data:
-        return reply({"msg": "No song lyrics provided"})
+        return reply(msg("No song lyrics provided"))
 
     # insert/update song
     song_list.update_one(
@@ -181,7 +184,7 @@ def save():
         upsert=True # insert if not exists
     )
     # return reply(success=True,_id=result.upserted_id)
-    return reply({"msg": "Valid save"})
+    return reply(msg("Valid save"))
 
 
 @app.route('/load', methods=['POST'])
@@ -190,13 +193,13 @@ def load():
     auth_token, _ = parse_json(request)
 
     if auth_token is None:
-        return reply({"msg": "User not authenticated"})
+        return reply(msg("User not authenticated"))
 
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
 
     if emailAddress is None:
-        return reply({"msg": "Invalid user authentication"})
+        return reply(msg("Invalid user authentication"))
 
     # find all songs by user
     result = song_list.find(
@@ -218,19 +221,19 @@ def delete_song():
     auth_token, data = parse_json(request)
 
     if auth_token is None:
-        return reply({"msg": "User not authenticated"})
+        return reply(msg("User not authenticated"))
 
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
 
     if emailAddress is None:
-        return reply({"msg": "Invalid user authentication"})
+        return reply(msg("Invalid user authentication"))
 
-    print()
-    print(len([s for s in song_list.find({})]))
-    print([s["songId"] for s in song_list.find({})])
-    print(data['songId'])
-    print(emailAddress)
+    # print()
+    # print(len([s for s in song_list.find({})]))
+    # print([s["songId"] for s in song_list.find({})])
+    # print(data['songId'])
+    # print(emailAddress)
     result = song_list.delete_one(
         # find same song
         {
@@ -242,9 +245,9 @@ def delete_song():
     print(len([s for s in song_list.find({})]))
     print(result)
     if result.raw_result.get("n") == 0:
-        return reply({"msg": "Song does not exist"})
+        return reply(msg("Song does not exist"))
     else:
-        return reply({"msg": "Valid song delete successful"})
+        return reply(msg("Valid song delete successful"))
 
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
@@ -252,29 +255,36 @@ def send_verification_code():
     # data = request.get_json()
     _, data = parse_json(request)
     if "emailAddress" not in data:
-        return reply({"msg": "No verification email address provided"})
+        return reply(msg("No verification email address provided"))
     email_address = data['emailAddress']
     login_code = randint(100000,999999)
 
     # save code
     email_codes.insert_one({
-        "login_code": login_code,
+        "loginCode": login_code,
         "emailAddress": email_address,
         "time": get_time()
     })
 
     # email user
     print(f"Sending code {login_code} to '{email_address}'")
-    msg =  send_verification_email(email_address, login_code)
-    return reply({"msg": msg})
+    email_response =  send_verification_email(email_address, login_code)
+    return reply(msg(email_response))
 
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
     # get json data sent in body of request
     # data = request.get_json()
     _, data = parse_json(request)
+
+    if "emailAddress" not in data:
+        return reply(msg("No verification email address provided"))
+
+    if "loginCode" not in data:
+        return reply(msg("No verification code provided"))
     
     entry = {}
+    print(f"{is_valid_login_code(data)=}")
     if is_valid_login_code(data):
         auth_token = str(uuid4())
         entry = {
@@ -283,7 +293,9 @@ def verify_login():
             "time": get_time()
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))
-    return reply(entry)
+        return reply(entry)
+    else:
+        return reply(msg("Incorrect verification code provided"))
 
 TEMP_PPTX_FILE = "temp.pptx"
 @app.route('/export', methods=['POST'])

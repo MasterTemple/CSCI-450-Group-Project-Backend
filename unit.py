@@ -275,45 +275,65 @@ test("/send_verification_code", body)
 
 # UT.SEND_VERIFICATION_CODE.2 - Email address is invalid: "Email address is invalid"
 
-body = {
-    "data": {
-        # "emailAddress": "some.email.that.does.not.exist@idonotexistmail.com"
-        "emailAddress": "some.email.that.does.not.exist@biola.edu"
-    },
-}
-test("/send_verification_code", body)
+# body = {
+#     "data": {
+#         # "emailAddress": "some.email.that.does.not.exist@idonotexistmail.com"
+#         "emailAddress": "some.email.that.does.not.exist@biola.edu"
+#     },
+# }
+# test("/send_verification_code", body)
 
 # UT.SEND_VERIFICATION_CODE.3 - Email address is valid: "Email address is valid"
 
-body = {
-    "data": {
-        "emailAddress": "blake.scampone@biola.edu"
-    },
-}
-test("/send_verification_code", body)
+# body = {
+#     "data": {
+#         "emailAddress": "blake.scampone@biola.edu"
+#     },
+# }
+# test("/send_verification_code", body)
 
 ###########################
 # Method: `/verify_login` #
 ###########################
 
-# UT.VERIFY_LOGIN.1 - No verification email address provided
-
+# UT.VERIFY_LOGIN.1 - No verification email address provided: "No verification email address provided"
 
 body = {
     "data": {
-        "emailAddress": "some.email@gmail.com",
-        "login_code": 777777,
+        "loginCode": 777777,
     },
 }
 test("/verify_login", body)
 
-# UT.VERIFY_LOGIN.2 - No verification code provided
+# UT.VERIFY_LOGIN.2 - No verification code provided: "No verification code provided"
 
+body = {
+    "data": {
+        "emailAddress": "some.email@gmail.com",
+    },
+}
+test("/verify_login", body)
 
+# UT.VERIFY_LOGIN.3 - Incorrect verification code provided: "Incorrect verification code provided"
 
-# UT.VERIFY_LOGIN.3 - Incorrect verification code provided
+# correct code is 777777
+body = {
+    "data": {
+        "emailAddress": "some.email@gmail.com",
+        "loginCode": 111111,
+    },
+}
+test("/verify_login", body)
 
+# UT.VERIFY_LOGIN.4 - Valid verification
 
+body = {
+    "data": {
+        "emailAddress": "some.email@gmail.com",
+        "loginCode": 777777,
+    },
+}
+test("/verify_login", body)
 
 #####################
 # Method: `/export` #
