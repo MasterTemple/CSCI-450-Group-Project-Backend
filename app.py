@@ -17,7 +17,17 @@ from slideshow import Slideshow
 import json
 import os
 import smtplib
+import re
 
+
+def msg(data: str) -> dict[str, str]:
+    return {"msg": data}
+
+def reply(data):
+    res = jsonify(data)
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
 
 ##############################
 # LOAD ENVIRONMENT VARIABLES #
@@ -80,7 +90,7 @@ def is_valid_login_code(data):
     login_code = data['loginCode']
     codes = [c for c in email_codes.find({"emailAddress": email_address})]
     for code in codes:
-        if int(code["login_code"]) == int(login_code):
+        if int(code["loginCode"]) == int(login_code):
             return True
     return False
 
@@ -103,32 +113,42 @@ def get_user_from_auth_token(auth_token) -> str | None:
         return None
     return entry["emailAddress"]
 
-def send_verification_email(recipient: str, code: int):
+def send_verification_email(recipient: str, code: int) -> str:
     # code_str = f"{code:0>6}"
     SUBJECT = "Lyric of Lyrics - Verification Code"
     BODY = f"Enter the following 6-digit code to verify your identity and gain access to your Lyric of Lyrics account: <b>{code}</b>"
     s=smtplib.SMTP("smtp.gmail.com", 587)
     s.starttls()
     s.login(LOL_EMAIL, LOL_PASSWORD)
-    msg = MIMEMultipart()
-    msg['From'] = LOL_EMAIL
-    msg['To'] = recipient
-    msg['Subject'] = SUBJECT
+    message = MIMEMultipart()
+    message['From'] = LOL_EMAIL
+    message['To'] = recipient
+    message['Subject'] = SUBJECT
     html_message = BODY
-    msg.attach(MIMEText(html_message, 'html'))
-    s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
-    s.quit()
+    message.attach(MIMEText(html_message, 'html'))
+    try:
+        s.sendmail(LOL_EMAIL, [recipient], message.as_string())
+        s.quit()
+        return "Code sent to email address if valid"
+    except:
+        return "Email address is invalid"
 
-def parse_json(request: Request) -> tuple[str, dict]:
+
+def parse_json(request: Request) -> tuple[str|None, dict]:
     """
     because MongoDB cries
     """
     body = {}
+    # print(f"{request.is_json=}")
+    # print(f"{request.json=}")
+    # print(f"{request.data=}")
     if request.is_json:
         body = json.loads(json.dumps(request.get_json()))
     else:
         body = json.loads(request.get_data())
-    return body["authToken"], body["data"]
+    token = body["authToken"] if "authToken" in body else None
+    data = body["data"] if "data" in body else {}
+    return token, data
 
 #################
 # SERVER ROUTES #
@@ -139,13 +159,23 @@ def save():
     # get json data sent in body of request
     auth_token, data = parse_json(request)
 
+    if auth_token is None:
+        return reply(msg("User not authenticated"))
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
+
     if emailAddress is None:
-        return jsonify({"msg": "invalid auth"})
+        return reply(msg("Invalid user authentication"))
+
+    if "songId" not in data:
+        return reply(msg("No song id provided"))
+
+    if "slides" not in data or "lines" not in data:
+        return reply(msg("No song lyrics provided"))
 
     # insert/update song
-    result = song_list.update_one(
+    song_list.update_one(
         # find same song
         {
             "songId": data["songId"],
@@ -154,11 +184,8 @@ def save():
         {"$set": data}, # rewrite existing song
         upsert=True # insert if not exists
     )
-    # return jsonify(success=True,_id=result.upserted_id)
-    res = jsonify({"msg": "success"})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    # return reply(success=True,_id=result.upserted_id)
+    return reply(msg("Valid save"))
 
 
 @app.route('/load', methods=['POST'])
@@ -166,14 +193,14 @@ def load():
     # get json data sent in body of request
     auth_token, _ = parse_json(request)
 
+    if auth_token is None:
+        return reply(msg("User not authenticated"))
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
+
     if emailAddress is None:
-        res = jsonify([])
-        res.headers.add('Access-Control-Allow-Origin', '*')
-        return res
-        # return jsonify({"msg": "invalid auth"})
-        # return jsonify({"msg": "invalid auth"})
+        return reply(msg("Invalid user authentication"))
 
     # find all songs by user
     result = song_list.find(
@@ -183,68 +210,83 @@ def load():
     )
     # put elements at cursor into list
     result = [r for r in result]
-    # ObjectId() object doesn't jsonify and I don't need it
+    # ObjectId() object doesn't reply and I don't need it
     for r in result:
         del r["_id"]
     # return list of songs
-    res = jsonify(result)
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    return reply(result)
 
 @app.route('/delete', methods=['POST'])
 def delete_song():
     # get json data sent in body of request
     auth_token, data = parse_json(request)
 
+    if auth_token is None:
+        return reply(msg("User not authenticated"))
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
-    if emailAddress is None:
-        return jsonify({"msg": "invalid auth"})
 
+    if emailAddress is None:
+        return reply(msg("Invalid user authentication"))
+
+    # print()
+    # print(len([s for s in song_list.find({})]))
+    # print([s["songId"] for s in song_list.find({})])
+    # print(data['songId'])
+    # print(emailAddress)
     result = song_list.delete_one(
         # find same song
         {
-            "songId": data["songId"],
+            "songId": str(data["songId"]),
             "emailAddress": emailAddress
         }
     )
+    # print("DELETE")
+    print(len([s for s in song_list.find({})]))
     print(result)
-    # return jsonify(success=True,_id=result.upserted_id)
-    res = jsonify({"msg": "delete success"})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    if result.raw_result.get("n") == 0:
+        return reply(msg("Song does not exist"))
+    else:
+        return reply(msg("Valid song delete successful"))
 
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
     # get json data sent in body of request
     # data = request.get_json()
     _, data = parse_json(request)
+    if "emailAddress" not in data:
+        return reply(msg("No verification email address provided"))
     email_address = data['emailAddress']
     login_code = randint(100000,999999)
 
     # save code
     email_codes.insert_one({
-        "login_code": login_code,
+        "loginCode": login_code,
         "emailAddress": email_address,
         "time": get_time()
     })
 
     # email user
-    print(f"Sent code {login_code} to '{email_address}'")
-    send_verification_email(email_address, login_code)
-    res =  jsonify({})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    print(f"Sending code {login_code} to '{email_address}'")
+    # email_response =  send_verification_email(email_address, login_code)
+    email_response = "Code sent to email address if valid"
+    return reply(msg(email_response))
 
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
     # get json data sent in body of request
     # data = request.get_json()
     _, data = parse_json(request)
+
+    if "emailAddress" not in data:
+        return reply(msg("No verification email address provided"))
+
+    if "loginCode" not in data:
+        return reply(msg("No verification code provided"))
     
     entry = {}
+    print(f"{is_valid_login_code(data)=}")
     if is_valid_login_code(data):
         auth_token = str(uuid4())
         entry = {
@@ -253,16 +295,56 @@ def verify_login():
             "time": get_time()
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))
-    res =  jsonify(entry)
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+        return reply(entry)
+    else:
+        return reply(msg("Incorrect verification code provided"))
 
 TEMP_PPTX_FILE = "temp.pptx"
 @app.route('/export', methods=['POST'])
 def export():
-    _, data = parse_json(request)
-    print(data.keys())
+    auth_token, data = parse_json(request)
+
+    if auth_token is None:
+        return reply(msg("User not authenticated"))
+
+    if "settings" not in data:
+        return reply(msg("Settings not provided"))
+
+    # validate all settings parameters
+    settings = data["settings"]
+    # defaults
+    if "textColor" not in settings:
+        settings["textColor"] = "#ffffff"
+    if "backgroundColor" not in settings:
+        settings["backgroundColor"] = "#000000"
+    if "fontFamily" not in settings:
+        settings["fontFamily"] = "Arial"
+    if "fontSize" not in settings:
+        settings["fontSize"] = 36
+    else:
+        settings["fontSize"] = float(settings["fontSize"])
+    if "includeTitleSlide" not in settings:
+        settings["includeTitleSlide"] = False
+
+
+    if not re.match("#[0-9a-f]{6}", settings["textColor"]):
+        return reply(msg("Invalid text color settings"))
+    if not re.match("#[0-9a-f]{6}", settings["backgroundColor"]):
+        return reply(msg("Invalid background color settings"))
+    if settings["fontSize"] < 0:
+        return reply(msg("Invalid font size settings"))
+
+    if "title" not in data and settings["includeTitleSlide"]:
+        return reply(msg("Title slide requested, but no title given"))
+
+    if "slides" not in data:
+        return reply(msg("Lyrics not provided"))
+
+    # print(json.dumps(data))
+    # if "author" not in data:
+    #     data["author"] = ""
+
+    # print(data.keys())
     slideshow = Slideshow(data["slides"], data["settings"], data["title"], data["author"])
     if len(data["title"]) > 0:
         title = data["title"]
@@ -272,7 +354,7 @@ def export():
         title = f"{title} - {data['author']}"
     slideshow.save(TEMP_PPTX_FILE)
     res = send_file(TEMP_PPTX_FILE, as_attachment=True, download_name=f"{title}.pptx")
-    res.headers.set("Content-Type", "application/json")
+    # res.headers.set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
 
