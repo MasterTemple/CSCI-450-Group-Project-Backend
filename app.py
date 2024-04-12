@@ -17,6 +17,7 @@ from slideshow import Slideshow
 import json
 import os
 import smtplib
+import re
 
 
 def msg(data: str) -> dict[str, str]:
@@ -300,8 +301,49 @@ def verify_login():
 TEMP_PPTX_FILE = "temp.pptx"
 @app.route('/export', methods=['POST'])
 def export():
-    _, data = parse_json(request)
-    print(data.keys())
+    auth_token, data = parse_json(request)
+
+    if auth_token is None:
+        return reply(msg("User not authenticated"))
+
+    if "settings" not in data:
+        return reply(msg("Settings not provided"))
+
+    # validate all settings parameters
+    settings = data["settings"]
+    # defaults
+    if "textColor" not in settings:
+        settings["textColor"] = "#ffffff"
+    if "backgroundColor" not in settings:
+        settings["backgroundColor"] = "#000000"
+    if "fontFamily" not in settings:
+        settings["fontFamily"] = "Arial"
+    if "fontSize" not in settings:
+        settings["fontSize"] = 36
+    else:
+        settings["fontSize"] = float(settings["fontSize"])
+    if "includeTitleSlide" not in settings:
+        settings["includeTitleSlide"] = False
+
+
+    if not re.match("#[0-9a-f]{6}", settings["textColor"]):
+        return reply(msg("Invalid text color settings"))
+    if not re.match("#[0-9a-f]{6}", settings["backgroundColor"]):
+        return reply(msg("Invalid background color settings"))
+    if not settings["fontSize"] < 0:
+        return reply(msg("Invalid font size settings"))
+
+    if "title" not in data and settings["includeTitleSlide"]:
+        return reply(msg("Title slide requested, but no title given"))
+
+    if "slides" not in data:
+        return reply(msg("Lyrics not provided"))
+
+    print(json.dumps(data))
+    # if "author" not in data:
+    #     data["author"] = ""
+
+    # print(data.keys())
     slideshow = Slideshow(data["slides"], data["settings"], data["title"], data["author"])
     if len(data["title"]) > 0:
         title = data["title"]

@@ -80,7 +80,7 @@ EXAMPLE_SONG = {
         "numberOfColumns": 5,
         "fontSize": 36,
         "fontFamily": "Arial",
-        "includeTitleSlide": "true"
+        "includeTitleSlide": True
     },
 }
 
@@ -95,7 +95,10 @@ def test(endpoint: str, json_data: dict):
     endpoint_counter[endpoint_name] += 1
     print(f"UT.{endpoint_name.upper()}.{endpoint_counter[endpoint_name]}", end=" - ")
     res = requests.post(url + endpoint, json=json_data)
-    print(res.json())
+    if res.headers['Content-Type'] == 'application/json':
+        print(res.json())
+    else:
+        print("File sent!")
     globals()["song"] = cp(EXAMPLE_SONG)
     reset_db()
 
@@ -341,17 +344,125 @@ test("/verify_login", body)
 
 # UT.EXPORT.1 - User Not Authenticated
 
+body = {
+    "data": song,
+}
+test("/export", body)
+
+# UT.EXPORT.2 - Lyrics not provided: "Lyrics not provided"
+
+body = {
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.3 - Settings not provided: "Settings not provided"
+
+del song["settings"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
 
-# UT.EXPORT.2 - Lyrics not provided
+# UT.EXPORT.4 - No text color provided
 
+del song["settings"]["textColor"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
+# UT.EXPORT.5 - No background color provided
 
-# UT.EXPORT.3 - Title slide requested
+del song["settings"]["backgroundColor"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
+# UT.EXPORT.6 - No font size provided
 
+del song["settings"]["fontSize"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
-# UT.EXPORT.4 - Title slide not requested
+# UT.EXPORT.7 - No font family provided
 
+del song["settings"]["fontFamily"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
+# UT.EXPORT.8 - No title slide boolean provided
+
+del song["settings"]["includeTitleSlide"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.9 - Invalid text color provided
+
+song["settings"]["textColor"] = "#a09v23"
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.10 - Invalid background color provided
+
+song["settings"]["backgroundColor"] = "#a09v23"
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.11 - Invalid font size provided
+
+song["settings"]["fontSize"] = -3
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.12 - Title slide requested and title not provided: "Title slide requested, but no title given"
+
+del song["settings"]["title"]
+song["settings"]["includeTitleSlide"] = True
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.13 - Title slide requested
+
+song["settings"]["includeTitleSlide"] = True
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
+
+# UT.EXPORT.14 - Title slide not requested
+
+song["settings"]["includeTitleSlide"] = False
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/export", body)
 
