@@ -148,10 +148,14 @@ def save():
     # get json data sent in body of request
     auth_token, data = parse_json(request)
 
+    if auth_token is None:
+        return reply({"msg": "User not authenticated"})
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
+
     if emailAddress is None:
-        return reply({"msg": "invalid auth"})
+        return reply({"msg": "Invalid user authentication"})
 
     # insert/update song
     result = song_list.update_one(
