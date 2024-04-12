@@ -85,14 +85,172 @@ EXAMPLE_SONG = {
 
 song = cp(EXAMPLE_SONG)
 
+def test(endpoint: str, json_data: dict):
+    reset_db()
+    res = requests.post(url + endpoint, json=json_data)
+    print(res.json())
+    globals()["song"] = cp(EXAMPLE_SONG)
+
+# print([s for s in song_list.find()])
+# print(len([s for s in song_list.find()]))
+
+
+######################################################################
+# Explanation: the song value and database get reset upon every test #
+######################################################################
+
+###################
+# Method: `/save` #
+###################
+
+# UT.SAVE.1 - Valid save: "Valid Save"
+
 body = {
     "data": song,
-    # "authToken": "top_secret_auth_token"
+    "authToken": "top_secret_auth_token"
 }
+test("/save", body)
 
-reset_db()
-# print([s for s in song_list.find()])
-print(len([s for s in song_list.find()]))
-res = requests.post(url + "/save", json=body)
-print(res.json())
-print(len([s for s in song_list.find()]))
+# UT.SAVE.2 - User not authenticated: "User not authenticated"
+
+body = {
+    "data": song,
+}
+test("/save", body)
+
+# UT.SAVE.3 - Invalid user authentication: "Invalid user authentication"
+
+body = {
+    "data": song,
+    "authToken": "some_invalid_auth_token"
+}
+test("/save", body)
+
+# UT.SAVE.4 - No song id provided: "No song id provided"
+
+del song["songId"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/save", body)
+
+
+# UT.SAVE.5 - No song lyrics provided: "No song lyrics provided"
+
+del song["slides"]
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/save", body)
+
+# UT.SAVE.6 - Song doesn't already exist: "Valid Save"
+
+# songId is already unique
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/save", body)
+
+# UT.SAVE.7 - Song already exists: "Valid Save"
+
+# songId of song already in db
+song["songId"] = "111"
+body = {
+    "data": song,
+    "authToken": "top_secret_auth_token"
+}
+test("/save", body)
+
+###################
+# Method: `/load` #
+###################
+
+# UT.LOAD.1 - User not authenticated
+
+
+
+# UT.LOAD.2 - Invalid user authentication: "Invalid user authentication"
+
+
+
+# UT.LOAD.3 - User has 0 songs: "[]"
+
+
+
+# UT.LOAD.4 - User has 1 song: "[{...}]"
+
+
+
+# UT.LOAD.5 - User has 1+ songs: "[{...},{...},...]"
+
+
+
+#####################
+# Method: `/delete` #
+#####################
+
+# UT.DELETE.1 - User not authenticated
+
+
+
+# UT.DELETE.2 - Song doesn't exist
+
+
+
+# UT.DELETE.3 - Song doesn't belong to authenticated user
+
+
+
+#####################################
+# Method: `/send_verification_code` #
+#####################################
+
+# UT.SEND_VERIFICATION_CODE.1 - No verification email address provided
+
+
+
+# UT.SEND_VERIFICATION_CODE.2 - Email address is invalid
+
+
+
+###########################
+# Method: `/verify_login` #
+
+
+
+###########################
+# UT.VERIFY_LOGIN.1 - No verification email address provided
+
+
+
+# UT.VERIFY_LOGIN.2 - No verification code provided
+
+
+
+# UT.VERIFY_LOGIN.3 - Incorrect verification code provided
+
+
+
+#####################
+# Method: `/export` #
+#####################
+
+# UT.EXPORT.1 - User Not Authenticated
+
+
+
+# UT.EXPORT.2 - Lyrics not provided
+
+
+
+# UT.EXPORT.3 - Title slide requested
+
+
+
+# UT.EXPORT.4 - Title slide not requested
+
+
+

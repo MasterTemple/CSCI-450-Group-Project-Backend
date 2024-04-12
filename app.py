@@ -157,8 +157,14 @@ def save():
     if emailAddress is None:
         return reply({"msg": "Invalid user authentication"})
 
+    if "songId" not in data:
+        return reply({"msg": "No song id provided"})
+
+    if "slides" not in data or "lines" not in data:
+        return reply({"msg": "No song lyrics provided"})
+
     # insert/update song
-    result = song_list.update_one(
+    song_list.update_one(
         # find same song
         {
             "songId": data["songId"],
@@ -168,10 +174,7 @@ def save():
         upsert=True # insert if not exists
     )
     # return reply(success=True,_id=result.upserted_id)
-    res = reply({"msg": "success"})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    return reply({"msg": "Valid save"})
 
 
 @app.route('/load', methods=['POST'])
