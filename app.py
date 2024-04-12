@@ -19,6 +19,12 @@ import os
 import smtplib
 
 
+def reply(data):
+    res = jsonify(data)
+    res.headers.set("Content-Type", "application/json")
+    res.headers.add('Access-Control-Allow-Origin', '*')
+    return res
+
 ##############################
 # LOAD ENVIRONMENT VARIABLES #
 ##############################
@@ -119,16 +125,19 @@ def send_verification_email(recipient: str, code: int):
     s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
     s.quit()
 
-def parse_json(request: Request) -> tuple[str, dict]:
+def parse_json(request: Request) -> tuple[str|None, dict]:
     """
     because MongoDB cries
     """
     body = {}
+    print(f"{request.is_json=}")
+    # print(f"{request.json=}")
+    print(f"{request.data=}")
     if request.is_json:
         body = json.loads(json.dumps(request.get_json()))
     else:
         body = json.loads(request.get_data())
-    return body["authToken"], body["data"]
+    return body["authToken"] if "authToken" in body else None, body["data"]
 
 #################
 # SERVER ROUTES #
@@ -142,7 +151,7 @@ def save():
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
     if emailAddress is None:
-        return jsonify({"msg": "invalid auth"})
+        return reply({"msg": "invalid auth"})
 
     # insert/update song
     result = song_list.update_one(
@@ -154,8 +163,8 @@ def save():
         {"$set": data}, # rewrite existing song
         upsert=True # insert if not exists
     )
-    # return jsonify(success=True,_id=result.upserted_id)
-    res = jsonify({"msg": "success"})
+    # return reply(success=True,_id=result.upserted_id)
+    res = reply({"msg": "success"})
     res.headers.set("Content-Type", "application/json")
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
@@ -169,11 +178,7 @@ def load():
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
     if emailAddress is None:
-        res = jsonify([])
-        res.headers.add('Access-Control-Allow-Origin', '*')
-        return res
-        # return jsonify({"msg": "invalid auth"})
-        # return jsonify({"msg": "invalid auth"})
+        return reply([])
 
     # find all songs by user
     result = song_list.find(
@@ -183,13 +188,11 @@ def load():
     )
     # put elements at cursor into list
     result = [r for r in result]
-    # ObjectId() object doesn't jsonify and I don't need it
+    # ObjectId() object doesn't reply and I don't need it
     for r in result:
         del r["_id"]
     # return list of songs
-    res = jsonify(result)
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    return reply(result)
 
 @app.route('/delete', methods=['POST'])
 def delete_song():
@@ -199,7 +202,7 @@ def delete_song():
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
     if emailAddress is None:
-        return jsonify({"msg": "invalid auth"})
+        return reply({"msg": "invalid auth"})
 
     result = song_list.delete_one(
         # find same song
@@ -209,11 +212,8 @@ def delete_song():
         }
     )
     print(result)
-    # return jsonify(success=True,_id=result.upserted_id)
-    res = jsonify({"msg": "delete success"})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    # return reply(success=True,_id=result.upserted_id)
+    return reply({"msg": "delete success"})
 
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
@@ -233,10 +233,7 @@ def send_verification_code():
     # email user
     print(f"Sent code {login_code} to '{email_address}'")
     send_verification_email(email_address, login_code)
-    res =  jsonify({})
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    return reply({})
 
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
@@ -253,10 +250,7 @@ def verify_login():
             "time": get_time()
         }
         user_logins.insert_one(json.loads(json.dumps(entry)))
-    res =  jsonify(entry)
-    res.headers.set("Content-Type", "application/json")
-    res.headers.add('Access-Control-Allow-Origin', '*')
-    return res
+    return reply(entry)
 
 TEMP_PPTX_FILE = "temp.pptx"
 @app.route('/export', methods=['POST'])
