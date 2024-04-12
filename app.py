@@ -269,8 +269,8 @@ def send_verification_code():
 
     # email user
     print(f"Sending code {login_code} to '{email_address}'")
-    # email_response =  send_verification_email(email_address, login_code)
-    email_response = "Code sent to email address if valid"
+    email_response =  send_verification_email(email_address, login_code)
+    # email_response = "Code sent to email address if valid"
     return reply(msg(email_response))
 
 @app.route('/verify_login', methods=['POST'])
