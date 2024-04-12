@@ -92,7 +92,7 @@ endpoint_counter = {}
 
 test_results = []
 
-def test(endpoint: str, json_data: dict):
+def test(endpoint: str, json_data: dict, description: str=""):
     endpoint_name = re.sub("/", "", endpoint)
     if endpoint_name not in endpoint_counter:
         endpoint_counter[endpoint_name] = 0
@@ -117,11 +117,8 @@ def test(endpoint: str, json_data: dict):
     test_results.append([
         log_id,
         json.dumps(json_data),
-        # json_data,
         log_message,
-        # json.dumps(json.loads(log_message), indent=2),
-        # json.dumps(json_data, indent=2),
-        # json.dumps(json.loads(log_message), indent=2),
+        description
     ])
     globals()["song"] = cp(EXAMPLE_SONG)
     reset_db()
@@ -138,58 +135,58 @@ def test(endpoint: str, json_data: dict):
 # Method: `/save` #
 ###################
 
-# UT.SAVE.1 - Valid save: "Valid Save"
+# UT.SAVE.1 - Valid save
 
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/save", body)
+test("/save", body, "Valid save")
 
-# UT.SAVE.2 - User not authenticated: "User not authenticated"
+# UT.SAVE.2 - User not authenticated
 
 body = {
     "data": song,
 }
-test("/save", body)
+test("/save", body, "User not authenticated")
 
-# UT.SAVE.3 - Invalid user authentication: "Invalid user authentication"
+# UT.SAVE.3 - Invalid user authentication
 
 body = {
     "data": song,
     "authToken": "some_invalid_auth_token"
 }
-test("/save", body)
+test("/save", body, "Invalid user authentication")
 
-# UT.SAVE.4 - No song id provided: "No song id provided"
+# UT.SAVE.4 - No song id provided
 
 del song["songId"]
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/save", body)
+test("/save", body, "No song id provided")
 
 
-# UT.SAVE.5 - No song lyrics provided: "No song lyrics provided"
+# UT.SAVE.5 - No song lyrics provided
 
 del song["slides"]
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/save", body)
+test("/save", body, "No song lyrics provided")
 
-# UT.SAVE.6 - Song doesn't already exist: "Valid Save"
+# UT.SAVE.6 - Song doesn't already exist
 
 # songId is already unique
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/save", body)
+test("/save", body, "Song doesn't already exist")
 
-# UT.SAVE.7 - Song already exists: "Valid Save"
+# UT.SAVE.7 - Song already exists
 
 # songId of song already in db
 song["songId"] = "111"
@@ -197,35 +194,35 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/save", body)
+test("/save", body, "Song already exists")
 
 ###################
 # Method: `/load` #
 ###################
 
-# UT.LOAD.1 - User not authenticated: "User not authenticated"
+# UT.LOAD.1 - User not authenticated
 
 body = {
 }
-test("/load", body)
+test("/load", body, "User not authenticated")
 
-# UT.LOAD.2 - Invalid user authentication: "Invalid user authentication"
+# UT.LOAD.2 - Invalid user authentication
 
 body = {
     "authToken": "some_invalid_auth_token"
 }
-test("/load", body)
+test("/load", body, "Invalid user authentication")
 
-# UT.LOAD.3 - User has 0 songs: "[]"
+# UT.LOAD.3 - User has 0 songs
 
 # delete all songs (which includes all songs for user)
 song_list.delete_many({})
 body = {
     "authToken": "top_secret_auth_token"
 }
-test("/load", body)
+test("/load", body, "User has 0 songs")
 
-# UT.LOAD.4 - User has 1 song: "[{...}]"
+# UT.LOAD.4 - User has 1 song
 
 # delete all songs (which includes all songs for user)
 song_list.delete_many({})
@@ -234,30 +231,30 @@ song_list.insert_one(song)
 body = {
     "authToken": "top_secret_auth_token"
 }
-test("/load", body)
+test("/load", body, "User has 1 song")
 
-# UT.LOAD.5 - User has 1+ songs: "[{...},{...},...]"
+# UT.LOAD.5 - User has 1+ songs
 
 # there are multiple songs already in the database
 body = {
     "authToken": "top_secret_auth_token"
 }
-test("/load", body)
+test("/load", body, "User has 1+ songs")
 
 #####################
 # Method: `/delete` #
 #####################
 
-# UT.DELETE.1 - User not authenticated: "User not authenticated"
+# UT.DELETE.1 - User not authenticated
 
 body = {
     "data": {
         "songId": 111
     },
 }
-test("/delete", body)
+test("/delete", body, "User not authenticated")
 
-# UT.DELETE.2 - Song doesn't exist: "Song doesn't exist"
+# UT.DELETE.2 - Song doesn't exist
 
 # this song does not exist
 body = {
@@ -266,9 +263,9 @@ body = {
     },
     "authToken": "top_secret_auth_token"
 }
-test("/delete", body)
+test("/delete", body, "Song doesn't exist")
 
-# UT.DELETE.3 - Song doesn't belong to authenticated user: "Invalid user authentication"
+# UT.DELETE.3 - Song doesn't belong to authenticated user
 
 body = {
     "data": {
@@ -276,9 +273,9 @@ body = {
     },
     "authToken": "auth_token_for_other_user"
 }
-test("/delete", body)
+test("/delete", body, "Song doesn't belong to authenticated user")
 
-# UT.DELETE.4 - Valid song delete successful: "Valid song delete successful"
+# UT.DELETE.4 - Valid song delete successful
 
 body = {
     "data": {
@@ -286,21 +283,21 @@ body = {
     },
     "authToken": "top_secret_auth_token"
 }
-test("/delete", body)
+test("/delete", body, "Valid song delete successful")
 
 #####################################
 # Method: `/send_verification_code` #
 #####################################
 
-# UT.SEND_VERIFICATION_CODE.1 - No verification email address provided: "No verification email address provided"
+# UT.SEND_VERIFICATION_CODE.1 - No verification email address provided
 
 body = {
     "data": {
     },
 }
-test("/send_verification_code", body)
+test("/send_verification_code", body, "No verification email address provided")
 
-# UT.SEND_VERIFICATION_CODE.2 - Email address is invalid: "Email address is invalid"
+# UT.SEND_VERIFICATION_CODE.2 - Email address is invalid
 
 body = {
     "data": {
@@ -308,40 +305,40 @@ body = {
         "emailAddress": "some.email.that.does.not.exist@biola.edu"
     },
 }
-test("/send_verification_code", body)
+test("/send_verification_code", body, "Email address is invalid")
 
-# UT.SEND_VERIFICATION_CODE.3 - Email address is valid: "Email address is valid"
+# UT.SEND_VERIFICATION_CODE.3 - Email address is valid
 
 body = {
     "data": {
         "emailAddress": "blake.scampone@biola.edu"
     },
 }
-test("/send_verification_code", body)
+test("/send_verification_code", body, "Email address is valid")
 
 ###########################
 # Method: `/verify_login` #
 ###########################
 
-# UT.VERIFY_LOGIN.1 - No verification email address provided: "No verification email address provided"
+# UT.VERIFY_LOGIN.1 - No verification email address provided
 
 body = {
     "data": {
         "loginCode": 777777,
     },
 }
-test("/verify_login", body)
+test("/verify_login", body, "No verification email address provided")
 
-# UT.VERIFY_LOGIN.2 - No verification code provided: "No verification code provided"
+# UT.VERIFY_LOGIN.2 - No verification code provided
 
 body = {
     "data": {
         "emailAddress": "some.email@gmail.com",
     },
 }
-test("/verify_login", body)
+test("/verify_login", body, "No verification code provided")
 
-# UT.VERIFY_LOGIN.3 - Incorrect verification code provided: "Incorrect verification code provided"
+# UT.VERIFY_LOGIN.3 - Incorrect verification code provided
 
 # correct code is 777777
 body = {
@@ -350,7 +347,7 @@ body = {
         "loginCode": 111111,
     },
 }
-test("/verify_login", body)
+test("/verify_login", body, "Incorrect verification code provided")
 
 # UT.VERIFY_LOGIN.4 - Valid verification
 
@@ -360,7 +357,7 @@ body = {
         "loginCode": 777777,
     },
 }
-test("/verify_login", body)
+test("/verify_login", body, "Valid verification")
 
 #####################
 # Method: `/export` #
@@ -371,25 +368,25 @@ test("/verify_login", body)
 body = {
     "data": song,
 }
-test("/export", body)
+test("/export", body, "User Not Authenticated")
 
-# UT.EXPORT.2 - Lyrics not provided: "Lyrics not provided"
+# UT.EXPORT.2 - Lyrics not provided
 
 del song["slides"]
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Lyrics not provided")
 
-# UT.EXPORT.3 - Settings not provided: "Settings not provided"
+# UT.EXPORT.3 - Settings not provided
 
 del song["settings"]
 body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Settings not provided")
 
 
 # UT.EXPORT.4 - No text color provided
@@ -399,7 +396,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "No text color provided")
 
 # UT.EXPORT.5 - No background color provided
 
@@ -408,7 +405,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "No background color provided")
 
 # UT.EXPORT.6 - No font size provided
 
@@ -417,7 +414,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "No font size provided")
 
 # UT.EXPORT.7 - No font family provided
 
@@ -426,7 +423,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "No font family provided")
 
 # UT.EXPORT.8 - No title slide boolean provided
 
@@ -435,7 +432,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "No title slide boolean provided")
 
 # UT.EXPORT.9 - Invalid text color provided
 
@@ -444,7 +441,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Invalid text color provided")
 
 # UT.EXPORT.10 - Invalid background color provided
 
@@ -453,7 +450,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Invalid background color provided")
 
 # UT.EXPORT.11 - Invalid font size provided
 
@@ -462,9 +459,9 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Invalid font size provided")
 
-# UT.EXPORT.12 - Title slide requested and title not provided: "Title slide requested, but no title given"
+# UT.EXPORT.12 - Title slide requested and title not provided
 
 del song["title"]
 song["settings"]["includeTitleSlide"] = True
@@ -472,7 +469,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Title slide requested and title not provided")
 
 # UT.EXPORT.13 - Title slide requested
 
@@ -481,7 +478,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Title slide requested")
 
 # UT.EXPORT.14 - Title slide not requested
 
@@ -490,7 +487,7 @@ body = {
     "data": song,
     "authToken": "top_secret_auth_token"
 }
-test("/export", body)
+test("/export", body, "Title slide not requested")
 
 # save
 
