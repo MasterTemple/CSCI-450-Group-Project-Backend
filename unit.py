@@ -1,4 +1,5 @@
 from pptx.shapes.autoshape import autoshape_types
+import re
 import requests
 import os
 from copy import deepcopy as cp
@@ -85,11 +86,18 @@ EXAMPLE_SONG = {
 
 song = cp(EXAMPLE_SONG)
 
+endpoint_counter = {}
+
 def test(endpoint: str, json_data: dict):
-    reset_db()
+    endpoint_name = re.sub("/", "", endpoint)
+    if endpoint_name not in endpoint_counter:
+        endpoint_counter[endpoint_name] = 0
+    endpoint_counter[endpoint_name] += 1
+    print(f"UT.{endpoint_name.upper()}.{endpoint_counter[endpoint_name]}", end=" - ")
     res = requests.post(url + endpoint, json=json_data)
     print(res.json())
     globals()["song"] = cp(EXAMPLE_SONG)
+    reset_db()
 
 # print([s for s in song_list.find()])
 # print(len([s for s in song_list.find()]))
@@ -168,63 +176,136 @@ test("/save", body)
 # Method: `/load` #
 ###################
 
-# UT.LOAD.1 - User not authenticated
+# UT.LOAD.1 - User not authenticated: "User not authenticated"
 
-
+body = {
+}
+test("/load", body)
 
 # UT.LOAD.2 - Invalid user authentication: "Invalid user authentication"
 
-
+body = {
+    "authToken": "some_invalid_auth_token"
+}
+test("/load", body)
 
 # UT.LOAD.3 - User has 0 songs: "[]"
 
-
+# delete all songs (which includes all songs for user)
+song_list.delete_many({})
+body = {
+    "authToken": "top_secret_auth_token"
+}
+test("/load", body)
 
 # UT.LOAD.4 - User has 1 song: "[{...}]"
 
-
+# delete all songs (which includes all songs for user)
+song_list.delete_many({})
+# create 1 song so that there is only 1 song
+song_list.insert_one(song)
+body = {
+    "authToken": "top_secret_auth_token"
+}
+test("/load", body)
 
 # UT.LOAD.5 - User has 1+ songs: "[{...},{...},...]"
 
-
+# there are multiple songs already in the database
+body = {
+    "authToken": "top_secret_auth_token"
+}
+test("/load", body)
 
 #####################
 # Method: `/delete` #
 #####################
 
-# UT.DELETE.1 - User not authenticated
+# UT.DELETE.1 - User not authenticated: "User not authenticated"
 
+body = {
+    "data": {
+        "songId": 111
+    },
+}
+test("/delete", body)
 
+# UT.DELETE.2 - Song doesn't exist: "Song doesn't exist"
 
-# UT.DELETE.2 - Song doesn't exist
+# this song does not exist
+body = {
+    "data": {
+        "songId": -1
+    },
+    "authToken": "top_secret_auth_token"
+}
+test("/delete", body)
 
+# UT.DELETE.3 - Song doesn't belong to authenticated user: "Invalid user authentication"
 
+body = {
+    "data": {
+        "songId": 111
+    },
+    "authToken": "auth_token_for_other_user"
+}
+test("/delete", body)
 
-# UT.DELETE.3 - Song doesn't belong to authenticated user
+# UT.DELETE.4 - Valid song delete successful: "Valid song delete successful"
 
-
+body = {
+    "data": {
+        "songId": 111
+    },
+    "authToken": "top_secret_auth_token"
+}
+test("/delete", body)
 
 #####################################
 # Method: `/send_verification_code` #
 #####################################
 
-# UT.SEND_VERIFICATION_CODE.1 - No verification email address provided
+# UT.SEND_VERIFICATION_CODE.1 - No verification email address provided: "No verification email address provided"
 
+body = {
+    "data": {
+    },
+}
+test("/send_verification_code", body)
 
+# UT.SEND_VERIFICATION_CODE.2 - Email address is invalid: "Email address is invalid"
 
-# UT.SEND_VERIFICATION_CODE.2 - Email address is invalid
+body = {
+    "data": {
+        # "emailAddress": "some.email.that.does.not.exist@idonotexistmail.com"
+        "emailAddress": "some.email.that.does.not.exist@biola.edu"
+    },
+}
+test("/send_verification_code", body)
 
+# UT.SEND_VERIFICATION_CODE.3 - Email address is valid: "Email address is valid"
 
+body = {
+    "data": {
+        "emailAddress": "blake.scampone@biola.edu"
+    },
+}
+test("/send_verification_code", body)
 
 ###########################
 # Method: `/verify_login` #
-
-
-
 ###########################
+
 # UT.VERIFY_LOGIN.1 - No verification email address provided
 
 
+body = {
+    "data": {
+        "emailAddress": "some.email@gmail.com",
+        "login_code": 777777,
+    },
+}
+test("/verify_login", body)
 
 # UT.VERIFY_LOGIN.2 - No verification code provided
 

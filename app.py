@@ -109,7 +109,7 @@ def get_user_from_auth_token(auth_token) -> str | None:
         return None
     return entry["emailAddress"]
 
-def send_verification_email(recipient: str, code: int):
+def send_verification_email(recipient: str, code: int) -> str:
     # code_str = f"{code:0>6}"
     SUBJECT = "Lyric of Lyrics - Verification Code"
     BODY = f"Enter the following 6-digit code to verify your identity and gain access to your Lyric of Lyrics account: <b>{code}</b>"
@@ -122,22 +122,29 @@ def send_verification_email(recipient: str, code: int):
     msg['Subject'] = SUBJECT
     html_message = BODY
     msg.attach(MIMEText(html_message, 'html'))
-    s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
-    s.quit()
+    try:
+        s.sendmail(LOL_EMAIL, [recipient], msg.as_string())
+        s.quit()
+        return "Email address is valid"
+    except:
+        return "Email address is invalid"
+
 
 def parse_json(request: Request) -> tuple[str|None, dict]:
     """
     because MongoDB cries
     """
     body = {}
-    print(f"{request.is_json=}")
+    # print(f"{request.is_json=}")
     # print(f"{request.json=}")
-    print(f"{request.data=}")
+    # print(f"{request.data=}")
     if request.is_json:
         body = json.loads(json.dumps(request.get_json()))
     else:
         body = json.loads(request.get_data())
-    return body["authToken"] if "authToken" in body else None, body["data"]
+    token = body["authToken"] if "authToken" in body else None
+    data = body["data"] if "data" in body else {}
+    return token, data
 
 #################
 # SERVER ROUTES #
@@ -182,10 +189,14 @@ def load():
     # get json data sent in body of request
     auth_token, _ = parse_json(request)
 
+    if auth_token is None:
+        return reply({"msg": "User not authenticated"})
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
+
     if emailAddress is None:
-        return reply([])
+        return reply({"msg": "Invalid user authentication"})
 
     # find all songs by user
     result = song_list.find(
@@ -206,27 +217,42 @@ def delete_song():
     # get json data sent in body of request
     auth_token, data = parse_json(request)
 
+    if auth_token is None:
+        return reply({"msg": "User not authenticated"})
+
     # invalid user
     emailAddress = get_user_from_auth_token(auth_token)
-    if emailAddress is None:
-        return reply({"msg": "invalid auth"})
 
+    if emailAddress is None:
+        return reply({"msg": "Invalid user authentication"})
+
+    print()
+    print(len([s for s in song_list.find({})]))
+    print([s["songId"] for s in song_list.find({})])
+    print(data['songId'])
+    print(emailAddress)
     result = song_list.delete_one(
         # find same song
         {
-            "songId": data["songId"],
+            "songId": str(data["songId"]),
             "emailAddress": emailAddress
         }
     )
+    # print("DELETE")
+    print(len([s for s in song_list.find({})]))
     print(result)
-    # return reply(success=True,_id=result.upserted_id)
-    return reply({"msg": "delete success"})
+    if result.raw_result.get("n") == 0:
+        return reply({"msg": "Song does not exist"})
+    else:
+        return reply({"msg": "Valid song delete successful"})
 
 @app.route('/send_verification_code', methods=['POST'])
 def send_verification_code():
     # get json data sent in body of request
     # data = request.get_json()
     _, data = parse_json(request)
+    if "emailAddress" not in data:
+        return reply({"msg": "No verification email address provided"})
     email_address = data['emailAddress']
     login_code = randint(100000,999999)
 
@@ -238,9 +264,9 @@ def send_verification_code():
     })
 
     # email user
-    print(f"Sent code {login_code} to '{email_address}'")
-    send_verification_email(email_address, login_code)
-    return reply({})
+    print(f"Sending code {login_code} to '{email_address}'")
+    msg =  send_verification_email(email_address, login_code)
+    return reply({"msg": msg})
 
 @app.route('/verify_login', methods=['POST'])
 def verify_login():
