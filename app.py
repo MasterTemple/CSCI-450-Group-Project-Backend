@@ -129,7 +129,7 @@ def send_verification_email(recipient: str, code: int) -> str:
     try:
         s.sendmail(LOL_EMAIL, [recipient], message.as_string())
         s.quit()
-        return "Email address is valid"
+        return "Code sent to email address if valid"
     except:
         return "Email address is invalid"
 
@@ -269,7 +269,8 @@ def send_verification_code():
 
     # email user
     print(f"Sending code {login_code} to '{email_address}'")
-    email_response =  send_verification_email(email_address, login_code)
+    # email_response =  send_verification_email(email_address, login_code)
+    email_response = "Code sent to email address if valid"
     return reply(msg(email_response))
 
 @app.route('/verify_login', methods=['POST'])
@@ -330,7 +331,7 @@ def export():
         return reply(msg("Invalid text color settings"))
     if not re.match("#[0-9a-f]{6}", settings["backgroundColor"]):
         return reply(msg("Invalid background color settings"))
-    if not settings["fontSize"] < 0:
+    if settings["fontSize"] < 0:
         return reply(msg("Invalid font size settings"))
 
     if "title" not in data and settings["includeTitleSlide"]:
@@ -339,7 +340,7 @@ def export():
     if "slides" not in data:
         return reply(msg("Lyrics not provided"))
 
-    print(json.dumps(data))
+    # print(json.dumps(data))
     # if "author" not in data:
     #     data["author"] = ""
 
@@ -353,7 +354,7 @@ def export():
         title = f"{title} - {data['author']}"
     slideshow.save(TEMP_PPTX_FILE)
     res = send_file(TEMP_PPTX_FILE, as_attachment=True, download_name=f"{title}.pptx")
-    res.headers.set("Content-Type", "application/json")
+    # res.headers.set("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
     res.headers.add('Access-Control-Allow-Origin', '*')
     return res
 

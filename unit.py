@@ -1,3 +1,4 @@
+from textwrap import indent
 from pptx.shapes.autoshape import autoshape_types
 import re
 import requests
@@ -6,6 +7,7 @@ from copy import deepcopy as cp
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import json
+import pandas as pd
 
 url = "http://127.0.0.1:5000"
 
@@ -88,17 +90,39 @@ song = cp(EXAMPLE_SONG)
 
 endpoint_counter = {}
 
+test_results = []
+
 def test(endpoint: str, json_data: dict):
     endpoint_name = re.sub("/", "", endpoint)
     if endpoint_name not in endpoint_counter:
         endpoint_counter[endpoint_name] = 0
     endpoint_counter[endpoint_name] += 1
-    print(f"UT.{endpoint_name.upper()}.{endpoint_counter[endpoint_name]}", end=" - ")
+    log_id = f"UT.{endpoint_name.upper()}.{endpoint_counter[endpoint_name]}"
+    print(log_id, end=" - ")
     res = requests.post(url + endpoint, json=json_data)
     if res.headers['Content-Type'] == 'application/json':
-        print(res.json())
+        log_message = json.dumps(res.json())
     else:
-        print("File sent!")
+    # elif res.headers['Content-Type'] == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+        # path = f"test_outputs/{log_id}.pptx"
+        os.makedirs('test_outputs', exist_ok=True)
+        path = os.path.join('test_outputs', f"{log_id}.pptx")
+        log_message = f"File saved to '{path}'."
+        # print(res.content)
+        with open(path, "wb") as file:
+            file.write(res.content)
+
+    print(log_message)
+
+    test_results.append([
+        log_id,
+        json.dumps(json_data),
+        # json_data,
+        log_message,
+        # json.dumps(json.loads(log_message), indent=2),
+        # json.dumps(json_data, indent=2),
+        # json.dumps(json.loads(log_message), indent=2),
+    ])
     globals()["song"] = cp(EXAMPLE_SONG)
     reset_db()
 
@@ -278,22 +302,22 @@ test("/send_verification_code", body)
 
 # UT.SEND_VERIFICATION_CODE.2 - Email address is invalid: "Email address is invalid"
 
-# body = {
-#     "data": {
-#         # "emailAddress": "some.email.that.does.not.exist@idonotexistmail.com"
-#         "emailAddress": "some.email.that.does.not.exist@biola.edu"
-#     },
-# }
-# test("/send_verification_code", body)
+body = {
+    "data": {
+        # "emailAddress": "some.email.that.does.not.exist@idonotexistmail.com"
+        "emailAddress": "some.email.that.does.not.exist@biola.edu"
+    },
+}
+test("/send_verification_code", body)
 
 # UT.SEND_VERIFICATION_CODE.3 - Email address is valid: "Email address is valid"
 
-# body = {
-#     "data": {
-#         "emailAddress": "blake.scampone@biola.edu"
-#     },
-# }
-# test("/send_verification_code", body)
+body = {
+    "data": {
+        "emailAddress": "blake.scampone@biola.edu"
+    },
+}
+test("/send_verification_code", body)
 
 ###########################
 # Method: `/verify_login` #
@@ -351,7 +375,9 @@ test("/export", body)
 
 # UT.EXPORT.2 - Lyrics not provided: "Lyrics not provided"
 
+del song["slides"]
 body = {
+    "data": song,
     "authToken": "top_secret_auth_token"
 }
 test("/export", body)
@@ -440,7 +466,7 @@ test("/export", body)
 
 # UT.EXPORT.12 - Title slide requested and title not provided: "Title slide requested, but no title given"
 
-del song["settings"]["title"]
+del song["title"]
 song["settings"]["includeTitleSlide"] = True
 body = {
     "data": song,
@@ -466,3 +492,7 @@ body = {
 }
 test("/export", body)
 
+# save
+
+df = pd.DataFrame(test_results)
+df.to_excel("unit_tests.xlsx")
